@@ -19,7 +19,7 @@ Build mode: learn
   Learner check: Open the app, click "Connect GitHub", complete the flow, and confirm you land on the dashboard shell. Does the sidebar show the correct navigation items with your GitHub avatar at the bottom?
   Commit: `Scaffold: Next.js 16, Auth.js, Drizzle, custom server, minimal landing + dashboard shell`
 
-- [ ] **2. GitHub App installation + repository scanning + API candidates**
+- [x] **2. GitHub App installation + repository scanning + API candidates**
   Becomes usable: From the dashboard, you can install the GitHub App on a repository, trigger a scan, and see a list of discovered API candidates with their file location, evidence snippet, and confidence level.
   Why now: Repository intelligence is the unique kernel of this product. Proving the scanner can actually read code and find real API usage patterns is the most important technical risk. If the GitHub App integration is broken or the pattern matching produces nothing useful, we need to know now — not after the whole UI is built.
   PRD ref: `prd.md → Screen 3 — Repository Scan`, `prd.md → Repository Connection and Scan`
