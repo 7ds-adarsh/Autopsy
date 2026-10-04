@@ -29,7 +29,7 @@ Build mode: learn
   Learner check: Connect the fixture repository, wait for the scan, and confirm you see the `payment.customer_id` reference discovered as a candidate. Does the evidence snippet look like what you'd expect from the code?
   Commit: `GitHub App integration and repository scanner with API candidate discovery`
 
-- [ ] **3. Endpoint configuration + credential encryption + baseline capture**
+- [x] **3. Endpoint configuration + credential encryption + baseline capture**
   Becomes usable: You can select a discovered API candidate, configure its endpoint (URL, method, params, authentication), test the connection, and establish a baseline by capturing the live response or pasting sample JSON. The structural summary is displayed before confirmation.
   Why now: This completes the setup path and creates the baseline that everything downstream depends on. Credential encryption must be proven correct before any real credentials are stored.
   PRD ref: `prd.md → Screen 4 — Configure Endpoint`, `prd.md → Screen 5 — Establish Baseline`, `prd.md → Endpoint Configuration`, `prd.md → Baseline`
@@ -72,7 +72,7 @@ Build mode: learn
 
 ## Hands-on Checkpoints
 
-- [ ] Early usable behavior explored — after Slice 3 (endpoint configured and baseline captured; learner tries the full setup flow and gives feedback before the pipeline is built)
+- [x] Early usable behavior explored — after Slice 3 (endpoint configured and baseline captured; learner tries the full setup flow and gives feedback before the pipeline is built)
 - [ ] Kernel verified end-to-end — after Slice 4 (complete product kernel proven via API routes: repository → configuration → baseline → real check → simulation → diff → impact → Gemini report; fix any issues before Slice 5)
 - [ ] Final kick-the-tires exploration and feedback completed — after Slice 6 (full demo path from landing page through Autopsy Report)
 
