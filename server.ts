@@ -2,6 +2,7 @@ import { createServer } from "http";
 import { parse } from "url";
 import next from "next";
 import { initSocketIO } from "./lib/socket/server";
+import { initScheduler } from "./lib/scheduler/monitor-scheduler";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 
@@ -35,5 +36,7 @@ app.prepare().then(() => {
   server.listen(port, () => {
     console.log(`> [API Autopsy] Server running on http://${hostname}:${port}`);
     console.log(`> Environment: ${dev ? "development" : "production"}`);
+    // Initialize monitor scheduler after server is ready
+    initScheduler();
   });
 });

@@ -1,4 +1,4 @@
-import { App, Octokit } from "octokit";
+import type { App, Octokit } from "octokit";
 
 export interface RepoTreeItem {
   path: string;
@@ -88,7 +88,7 @@ var axios = require('axios');
 `,
 };
 
-function getGitHubApp(): App | null {
+async function getGitHubApp(): Promise<App | null> {
   const appId = process.env.GITHUB_APP_ID;
   const privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
 
@@ -97,7 +97,8 @@ function getGitHubApp(): App | null {
   }
 
   try {
-    return new App({
+    const { App: OctokitApp } = await import("octokit");
+    return new OctokitApp({
       appId,
       privateKey: privateKey.replace(/\\n/g, "\n"),
     });
@@ -115,7 +116,7 @@ export async function getInstallationClient(installationId: string): Promise<Oct
     return null;
   }
 
-  const app = getGitHubApp();
+  const app = await getGitHubApp();
   if (!app) return null;
 
   try {
@@ -184,7 +185,7 @@ export async function getFileContent(
   path: string,
   installationId: string
 ): Promise<string | null> {
-  if (installationId.startsWith("fixture-") || !getGitHubApp()) {
+  if (installationId.startsWith("fixture-") || !(await getGitHubApp())) {
     return DEMO_FIXTURE_FILES[path] || null;
   }
 

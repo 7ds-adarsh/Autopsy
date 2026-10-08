@@ -39,7 +39,7 @@ Build mode: learn
   Learner check: Configure the payment endpoint with a credential, test it, and establish a baseline using the sample JSON path. Inspect the database — can you confirm the stored credential is encrypted (not the raw value you typed)?
   Commit: `Endpoint config, credential encryption, test connection, and baseline capture`
 
-- [ ] **4. The kernel: diff engine + incident pipeline + Gemini Autopsy (both paths)**
+- [x] **4. The kernel: diff engine + incident pipeline + Gemini Autopsy (both paths)**
   Becomes usable: The deterministic diff engine is unit-tested. Both the real-check path and the simulation path run the same `runIncidentPipeline()` — the only difference is the response source and `isSimulation` flag. Triggering either path via API route produces an incident record and a complete Autopsy Report in the database.
   Why now: This is the unique kernel of API Autopsy. Proving both paths converge correctly — and that error classification, security boundaries, and Gemini failure handling all work — before building any real-time UI means the demo backend is verified independently.
   PRD ref: `prd.md → Incident Pipeline`, `prd.md → Autopsy Report`, `prd.md → Simulate API Change`, `prd.md → States and Boundaries`
@@ -73,7 +73,7 @@ Build mode: learn
 ## Hands-on Checkpoints
 
 - [x] Early usable behavior explored — after Slice 3 (endpoint configured and baseline captured; learner tries the full setup flow and gives feedback before the pipeline is built)
-- [ ] Kernel verified end-to-end — after Slice 4 (complete product kernel proven via API routes: repository → configuration → baseline → real check → simulation → diff → impact → Gemini report; fix any issues before Slice 5)
+- [x] Kernel verified end-to-end — after Slice 4 (complete product kernel proven via API routes: repository → configuration → baseline → real check → simulation → diff → impact → Gemini report; fix any issues before Slice 5)
 - [ ] Final kick-the-tires exploration and feedback completed — after Slice 6 (full demo path from landing page through Autopsy Report)
 
 ## Final Review
