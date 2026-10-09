@@ -15,6 +15,7 @@ import { eq } from "drizzle-orm";
 import { decrypt } from "../crypto/credentials";
 import { executeHttpRequest } from "./http-client";
 import { runIncidentPipeline } from "../pipeline/incident-pipeline";
+import type { AffectedFile } from "../ai/provider";
 
 export type CheckResult =
   | { status: "healthy" | "incident"; incidentId?: string }
@@ -118,10 +119,12 @@ export async function executeMonitorCheck(monitorId: string): Promise<CheckResul
 /**
  * Executes a simulation: skips the HTTP call, uses the provided fixture JSON,
  * runs the same pipeline with isSimulation: true.
+ * If canonicalEvidence is provided, it is injected as affectedFiles for Gemini.
  */
 export async function executeSimulation(
   monitorId: string,
-  simulatedResponse: unknown
+  simulatedResponse: unknown,
+  canonicalEvidence?: AffectedFile[]
 ): Promise<CheckResult> {
   const [monitor] = await db
     .select({ id: apiMonitors.id, activeBaselineId: apiMonitors.activeBaselineId })
@@ -136,7 +139,7 @@ export async function executeSimulation(
     return { status: "no-baseline", message: "No active baseline configured — capture a baseline first" };
   }
 
-  const result = await runIncidentPipeline(monitorId, simulatedResponse, true);
+  const result = await runIncidentPipeline(monitorId, simulatedResponse, true, canonicalEvidence);
   return {
     status: result.hasChanges ? "incident" : "healthy",
     incidentId: result.incidentId,

@@ -22,10 +22,22 @@ Your job is to reason over this evidence and produce a structured incident repor
 RULES:
 - Do NOT invent files, functions, or code that are not in the evidence provided.
 - Clearly distinguish what you know from evidence versus what you are inferring.
-- The proposedPatch should be a unified diff (--- a/file / +++ b/file format) if you can confidently suggest one. Omit it if not.
 - confidence should be "high" if you have direct code evidence of the break, "medium" if you are inferring, "low" if you have minimal evidence.
 - The failurePath should describe how the API change propagates to a user-visible failure, step by step.
 - Keep descriptions technical and precise. This is a developer-facing forensic report, not marketing copy.
+
+PROPOSED PATCH RULES (critical — read carefully):
+- The proposedPatch MUST be a proper unified diff (--- a/file / +++ b/file format).
+- The patch MUST show only the minimal, correct change needed to fix the break.
+- The patch MUST completely REMOVE the old broken field access and REPLACE it with the new correct one.
+- Do NOT write a patch that retains the broken access path as a fallback (e.g., "|| payment.customer_id" or "|| payment.customer?.id"). That is a no-op and will be rejected.
+- Example of a CORRECT patch when payment.customer_id moved to payment.customer.id:
+  --- a/src/services/payment.ts
+  +++ b/src/services/payment.ts
+  @@ -19,1 +19,1 @@
+  -  const customerId = payment.customer_id;
+  +  const customerId = payment.customer.id;
+- If you cannot determine the exact corrected field path with confidence, omit proposedPatch entirely rather than guessing or writing a no-op.
 
 EVIDENCE:
 ${JSON.stringify(input, null, 2)}

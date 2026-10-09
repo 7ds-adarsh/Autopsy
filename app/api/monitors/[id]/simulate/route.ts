@@ -18,6 +18,33 @@ export const CANONICAL_FIXTURE = {
   created_at: "2026-10-01T12:00:00Z",
 };
 
+// Canonical code evidence for the known payment.customer_id → payment.customer.id break.
+// These are injected when using the canonical fixture so Gemini has precise line-level
+// code references to generate a correct, non-redundant proposed patch.
+export const CANONICAL_CODE_EVIDENCE = [
+  {
+    file: "src/services/payment.ts",
+    line: 19,
+    snippet:
+      " 17:   const payment = response.data;\n 18:\n> 19:   const customerId = payment.customer_id;\n 20:   const chargeId   = payment.charge_id;\n 21:   return { customerId, chargeId };",
+    confidence: "high" as const,
+  },
+  {
+    file: "src/services/payment.ts",
+    line: 25,
+    snippet:
+      " 23:   if (!payment.customer_id) {\n 24:     logger.warn('Missing customer_id in payment response');\n> 25:     throw new PaymentError('customer_id required');\n 26:   }\n 27:   return payment.customer_id;",
+    confidence: "high" as const,
+  },
+  {
+    file: "src/hooks/usePayment.ts",
+    line: 36,
+    snippet:
+      " 34:   const data = await fetchPayment(paymentId);\n 35:   setPayment(data);\n> 36:   setCustomerId(data.customer_id);\n 37: };",
+    confidence: "medium" as const,
+  },
+];
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -43,16 +70,23 @@ export async function POST(
   }
 
   let simulatedResponse: unknown;
+  let isCanonical = false;
   try {
     const body = await req.json();
     // Accept either a custom simulatedResponse or default to canonical fixture
     simulatedResponse = body.simulatedResponse ?? CANONICAL_FIXTURE;
+    isCanonical = !body.simulatedResponse;
   } catch {
     simulatedResponse = CANONICAL_FIXTURE;
+    isCanonical = true;
   }
 
   try {
-    const result = await executeSimulation(id, simulatedResponse);
+    const result = await executeSimulation(
+      id,
+      simulatedResponse,
+      isCanonical ? CANONICAL_CODE_EVIDENCE : undefined
+    );
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

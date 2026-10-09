@@ -32,7 +32,8 @@ const aiProvider = new GeminiProvider();
 export async function runIncidentPipeline(
   monitorId: string,
   newResponse: unknown,
-  isSimulation: boolean
+  isSimulation: boolean,
+  injectedAffectedFiles?: import("../ai/provider").AffectedFile[]
 ): Promise<{ incidentId?: string; hasChanges: boolean }> {
   const io = getIO();
 
@@ -123,14 +124,19 @@ export async function runIncidentPipeline(
 
   console.log(`[Pipeline] Incident created: ${incident.id}`);
 
-  // 8. Repository impact analysis
+  // 8. Repository impact analysis (or use injected evidence for canonical simulations)
   let affectedFiles: Awaited<ReturnType<typeof runRepositoryImpact>> = [];
-  try {
-    affectedFiles = await runRepositoryImpact(monitorId, diff);
-    console.log(`[Pipeline] Impact analysis: ${affectedFiles.length} affected file(s)`);
-  } catch (err) {
-    console.error("[Pipeline] Impact analysis failed:", err);
-    // Non-fatal — continue to Gemini with empty affected files
+  if (injectedAffectedFiles && injectedAffectedFiles.length > 0) {
+    affectedFiles = injectedAffectedFiles;
+    console.log(`[Pipeline] Using injected code evidence: ${affectedFiles.length} file(s)`);
+  } else {
+    try {
+      affectedFiles = await runRepositoryImpact(monitorId, diff);
+      console.log(`[Pipeline] Impact analysis: ${affectedFiles.length} affected file(s)`);
+    } catch (err) {
+      console.error("[Pipeline] Impact analysis failed:", err);
+      // Non-fatal — continue to Gemini with empty affected files
+    }
   }
 
   // 9. Emit autopsy:started
