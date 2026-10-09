@@ -143,6 +143,7 @@ export async function runRepositoryImpact(
             line: match.lineNumber,
             snippet: getSnippet(content, match.lineNumber),
             confidence: match.confidence,
+            source: "live_repo_scan",
           });
         }
       }

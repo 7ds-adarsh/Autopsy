@@ -39,6 +39,11 @@ PROPOSED PATCH RULES (critical — read carefully):
   +  const customerId = payment.customer.id;
 - If you cannot determine the exact corrected field path with confidence, omit proposedPatch entirely rather than guessing or writing a no-op.
 
+EVIDENCE PROVENANCE:
+- Each entry in affectedFiles may have a "source" field: "live_repo_scan" means it was retrieved from the user's actual repository; "canonical_demo_fixture" means it is pre-loaded demo evidence, NOT from the user's repository.
+- When source="canonical_demo_fixture", include a note in confidenceEvidence such as: "Code evidence is from the canonical demo scenario, not retrieved from a live repository scan."
+- Never present demo-fixture evidence as if it were retrieved from the user's repository.
+
 EVIDENCE:
 ${JSON.stringify(input, null, 2)}
 

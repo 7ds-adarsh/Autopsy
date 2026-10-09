@@ -4,46 +4,14 @@ import { db } from "@/lib/db/client";
 import { apiMonitors, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { executeSimulation } from "@/lib/monitor/executor";
+import {
+  resolveSimulationConfig,
+  CANONICAL_FIXTURE,
+  CANONICAL_CODE_EVIDENCE,
+} from "@/lib/monitor/canonical-demo";
 
-// Canonical breaking fixture: customer_id removed, customer.id added as nested object
-export const CANONICAL_FIXTURE = {
-  id: "pay_live_8392",
-  customer: {
-    id: "cus_8392",
-    email: "user@example.com",
-  },
-  amount: 4999,
-  currency: "usd",
-  status: "succeeded",
-  created_at: "2026-10-01T12:00:00Z",
-};
-
-// Canonical code evidence for the known payment.customer_id → payment.customer.id break.
-// These are injected when using the canonical fixture so Gemini has precise line-level
-// code references to generate a correct, non-redundant proposed patch.
-export const CANONICAL_CODE_EVIDENCE = [
-  {
-    file: "src/services/payment.ts",
-    line: 19,
-    snippet:
-      " 17:   const payment = response.data;\n 18:\n> 19:   const customerId = payment.customer_id;\n 20:   const chargeId   = payment.charge_id;\n 21:   return { customerId, chargeId };",
-    confidence: "high" as const,
-  },
-  {
-    file: "src/services/payment.ts",
-    line: 25,
-    snippet:
-      " 23:   if (!payment.customer_id) {\n 24:     logger.warn('Missing customer_id in payment response');\n> 25:     throw new PaymentError('customer_id required');\n 26:   }\n 27:   return payment.customer_id;",
-    confidence: "high" as const,
-  },
-  {
-    file: "src/hooks/usePayment.ts",
-    line: 36,
-    snippet:
-      " 34:   const data = await fetchPayment(paymentId);\n 35:   setPayment(data);\n> 36:   setCustomerId(data.customer_id);\n 37: };",
-    confidence: "medium" as const,
-  },
-];
+// Re-export for consumers that need them (e.g. tests)
+export { CANONICAL_FIXTURE, CANONICAL_CODE_EVIDENCE };
 
 export async function POST(
   req: NextRequest,
@@ -69,24 +37,25 @@ export async function POST(
     return NextResponse.json({ error: "Monitor not found" }, { status: 404 });
   }
 
-  let simulatedResponse: unknown;
-  let isCanonical = false;
+  // Parse the request body (may be absent or malformed — both are handled)
+  let parsedBody: unknown = null;
   try {
-    const body = await req.json();
-    // Accept either a custom simulatedResponse or default to canonical fixture
-    simulatedResponse = body.simulatedResponse ?? CANONICAL_FIXTURE;
-    isCanonical = !body.simulatedResponse;
+    parsedBody = await req.json();
   } catch {
-    simulatedResponse = CANONICAL_FIXTURE;
-    isCanonical = true;
+    // No body or invalid JSON — treated as null by resolveSimulationConfig
+  }
+
+  // Canonical evidence is injected ONLY when the caller explicitly opts in via
+  // useCanonicalDemo: true.  Absence of simulatedResponse alone does not qualify.
+  const { simulatedResponse, canonicalEvidence, isCanonicalDemo } =
+    resolveSimulationConfig(parsedBody);
+
+  if (isCanonicalDemo) {
+    console.log(`[API /simulate] Monitor ${id}: running canonical demo scenario`);
   }
 
   try {
-    const result = await executeSimulation(
-      id,
-      simulatedResponse,
-      isCanonical ? CANONICAL_CODE_EVIDENCE : undefined
-    );
+    const result = await executeSimulation(id, simulatedResponse, canonicalEvidence);
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

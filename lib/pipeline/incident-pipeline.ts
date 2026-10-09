@@ -128,11 +128,14 @@ export async function runIncidentPipeline(
   let affectedFiles: Awaited<ReturnType<typeof runRepositoryImpact>> = [];
   if (injectedAffectedFiles && injectedAffectedFiles.length > 0) {
     affectedFiles = injectedAffectedFiles;
-    console.log(`[Pipeline] Using injected code evidence: ${affectedFiles.length} file(s)`);
+    const evidenceSource = injectedAffectedFiles[0]?.source ?? "unknown";
+    console.log(
+      `[Pipeline] Using injected code evidence: ${affectedFiles.length} file(s) (source: ${evidenceSource})`
+    );
   } else {
     try {
       affectedFiles = await runRepositoryImpact(monitorId, diff);
-      console.log(`[Pipeline] Impact analysis: ${affectedFiles.length} affected file(s)`);
+      console.log(`[Pipeline] Impact analysis: ${affectedFiles.length} affected file(s) (source: live_repo_scan)`);
     } catch (err) {
       console.error("[Pipeline] Impact analysis failed:", err);
       // Non-fatal — continue to Gemini with empty affected files

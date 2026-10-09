@@ -11,6 +11,13 @@ export interface AffectedFile {
   snippet?: string;     // surrounding code, ≤5 lines
   confidence: "high" | "medium" | "low";
   note?: string;        // e.g. "Line-level attribution unavailable"
+  /**
+   * Provenance: where this evidence came from.
+   * - "live_repo_scan" — fetched from the user's actual GitHub repository
+   * - "canonical_demo_fixture" — injected from the built-in demo scenario;
+   *   NOT from the user's repository
+   */
+  source?: "live_repo_scan" | "canonical_demo_fixture";
 }
 
 export interface AutopsyInput {
