@@ -39,6 +39,7 @@ export interface AutopsyReport {
     line?: number;
     snippet?: string;
     explanation: string;
+    source?: "live_repo_scan" | "canonical_demo_fixture";
   }[];
   failurePath: {
     step: string;

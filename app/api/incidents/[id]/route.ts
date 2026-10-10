@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { incidents, apiMonitors, autopsyReports, baselines, users } from "@/lib/db/schema";
+import { incidents, apiMonitors, autopsyReports, baselines, repositories, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function GET(
@@ -30,8 +30,16 @@ export async function GET(
 
   // Verify ownership via monitor
   const [monitor] = await db
-    .select({ userId: apiMonitors.userId, name: apiMonitors.name, endpoint: apiMonitors.endpoint })
+    .select({
+      userId: apiMonitors.userId,
+      name: apiMonitors.name,
+      endpoint: apiMonitors.endpoint,
+      baseUrl: apiMonitors.baseUrl,
+      method: apiMonitors.method,
+      repositoryName: repositories.fullName,
+    })
     .from(apiMonitors)
+    .leftJoin(repositories, eq(apiMonitors.repositoryId, repositories.id))
     .where(eq(apiMonitors.id, incident.monitorId));
 
   if (!monitor || monitor.userId !== userId) {
@@ -63,6 +71,9 @@ export async function GET(
     monitor: {
       name: monitor.name,
       endpoint: monitor.endpoint,
+      baseUrl: monitor.baseUrl,
+      method: monitor.method,
+      repositoryName: monitor.repositoryName,
     },
     baseline: baseline ?? null,
   });

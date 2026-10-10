@@ -16,6 +16,7 @@ import { decrypt } from "../crypto/credentials";
 import { executeHttpRequest } from "./http-client";
 import { runIncidentPipeline } from "../pipeline/incident-pipeline";
 import type { AffectedFile } from "../ai/provider";
+import { getIO } from "../socket/server";
 
 export type CheckResult =
   | { status: "healthy" | "incident"; incidentId?: string }
@@ -27,6 +28,8 @@ export type CheckResult =
  * Classifies response, then runs pipeline only on success.
  */
 export async function executeMonitorCheck(monitorId: string): Promise<CheckResult> {
+  getIO()?.emit("check:started", { monitorId });
+
   // 1. Load monitor config
   const [monitor] = await db
     .select()
@@ -126,6 +129,8 @@ export async function executeSimulation(
   simulatedResponse: unknown,
   canonicalEvidence?: AffectedFile[]
 ): Promise<CheckResult> {
+  getIO()?.emit("simulation:started", { monitorId });
+
   const [monitor] = await db
     .select({ id: apiMonitors.id, activeBaselineId: apiMonitors.activeBaselineId })
     .from(apiMonitors)

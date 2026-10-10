@@ -38,7 +38,10 @@ export async function GET() {
       updatedAt: incidents.updatedAt,
       diff: incidents.diff,
       monitorName: apiMonitors.name,
+      monitorEndpoint: apiMonitors.endpoint,
+      monitorMethod: apiMonitors.method,
       reportId: autopsyReports.id,
+      whatChanged: autopsyReports.whatChanged,
     })
     .from(incidents)
     .leftJoin(apiMonitors, eq(incidents.monitorId, apiMonitors.id))

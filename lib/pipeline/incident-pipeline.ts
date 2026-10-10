@@ -70,6 +70,13 @@ export async function runIncidentPipeline(
   // 3. Run structural diff
   const diff: DiffResult = computeDiff(normalizedBaseline, normalizedNew);
 
+  io?.emit("diff:computed", {
+    monitorId,
+    hasChanges: diff.hasChanges,
+    changes: diff.changes,
+    severity: diff.overallSeverity,
+  });
+
   // 4. No changes — update lastCheckedAt and exit cleanly
   if (!diff.hasChanges) {
     await db
@@ -120,6 +127,7 @@ export async function runIncidentPipeline(
     monitorId,
     severity,
     isSimulation,
+    diff,
   });
 
   console.log(`[Pipeline] Incident created: ${incident.id}`);
@@ -142,8 +150,15 @@ export async function runIncidentPipeline(
     }
   }
 
+  io?.emit("impact:completed", {
+    incidentId: incident.id,
+    monitorId,
+    affectedFilesCount: affectedFiles.length,
+    affectedFiles,
+  });
+
   // 9. Emit autopsy:started
-  io?.emit("autopsy:started", { incidentId: incident.id });
+  io?.emit("autopsy:started", { incidentId: incident.id, monitorId });
 
   // 10. Build AutopsyInput — credentials and full repo explicitly excluded
   const autopsyInput: AutopsyInput = {
@@ -159,6 +174,7 @@ export async function runIncidentPipeline(
   // 11. Call AI provider
   io?.emit("autopsy:progress", {
     incidentId: incident.id,
+    monitorId,
     step: "ai_analysis",
     message: "Sending evidence to Gemini for analysis...",
   });
@@ -166,13 +182,27 @@ export async function runIncidentPipeline(
   try {
     const report = await aiProvider.analyzeAutopsy(autopsyInput);
 
+    // Merge evidence provenance source onto applicationImpact entries
+    const sourceMap = new Map<string, "live_repo_scan" | "canonical_demo_fixture">();
+    for (const f of affectedFiles) {
+      if (f.source) {
+        sourceMap.set(f.file, f.source);
+      }
+    }
+    const fallbackSource = affectedFiles[0]?.source;
+
+    const enrichedApplicationImpact = (report.applicationImpact || []).map((item) => ({
+      ...item,
+      source: item.source || sourceMap.get(item.file) || fallbackSource,
+    }));
+
     // 12. Save autopsy report
     const [savedReport] = await db
       .insert(autopsyReports)
       .values({
         incidentId: incident.id,
         whatChanged: report.whatChanged,
-        applicationImpact: report.applicationImpact as unknown as Record<string, unknown>[],
+        applicationImpact: enrichedApplicationImpact as unknown as Record<string, unknown>[],
         failurePath: report.failurePath as unknown as Record<string, unknown>[],
         rootCause: report.rootCause,
         recommendedFix: report.recommendedFix,
@@ -185,6 +215,7 @@ export async function runIncidentPipeline(
     // 13. Emit autopsy:completed
     io?.emit("autopsy:completed", {
       incidentId: incident.id,
+      monitorId,
       reportId: savedReport.id,
     });
 
@@ -217,6 +248,7 @@ export async function runIncidentPipeline(
 
     io?.emit("autopsy:completed", {
       incidentId: incident.id,
+      monitorId,
       reportId: null,
       error: "Gemini analysis failed",
     });

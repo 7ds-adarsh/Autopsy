@@ -134,9 +134,11 @@ export function MonitorsView({ initialMonitors }: MonitorsViewProps) {
                       <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#161d2d] text-rose-400 border border-rose-900/40">
                         {m.method}
                       </span>
-                      <h2 className="text-sm font-bold text-slate-100 font-mono">
-                        {m.name}
-                      </h2>
+                      <Link href={`/apis/${m.id}`} className="hover:text-rose-400 transition-colors">
+                        <h2 className="text-sm font-bold text-slate-100 font-mono">
+                          {m.name}
+                        </h2>
+                      </Link>
                       {hasBaseline ? (
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" /> Baseline Active
@@ -153,6 +155,14 @@ export function MonitorsView({ initialMonitors }: MonitorsViewProps) {
                   </div>
 
                   <div className="flex items-center gap-2.5">
+                    <Link
+                      href={`/apis/${m.id}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#161d2b] hover:bg-[#1f283d] border border-[#232f48] text-xs font-mono text-slate-200 transition-colors"
+                    >
+                      <Activity className="w-3.5 h-3.5 text-rose-400" />
+                      Open Monitor
+                    </Link>
+
                     <button
                       onClick={() => handleTest(m.id)}
                       disabled={isTesting}

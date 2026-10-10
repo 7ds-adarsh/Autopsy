@@ -56,7 +56,7 @@ export async function POST(
 
   try {
     const result = await executeSimulation(id, simulatedResponse, canonicalEvidence);
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, isSimulation: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[API /simulate] Monitor ${id} error:`, message);
