@@ -33,7 +33,7 @@ API changed → customer_id removed → payment.customer_id → undefined → Cu
    - **Real Checks:** Periodic background scheduler polls external APIs and validates live response structures against captured baselines.
    - **Simulations:** Controlled sandbox executes breaking payload mutations (e.g., canonical `customer_id` → `customer.id` demo) to test application resilience safely.
 4. **Deterministic Diff Engine:** Compares JSON schemas recursively—ignoring harmless property ordering while flagging breaking deletions, renames, and type mutations.
-5. **AST Code Impact Analysis:** Queries repository files for direct references to altered fields (dot notation, bracket syntax, destructuring).
+5. **Repository Impact Scan:** Queries repository files for direct references to altered fields (dot notation, bracket syntax, destructuring) using pattern-based matching.
 6. **Gemini Root Cause Autopsy:** Google Gemini reasons over the deterministic diff and verified code evidence to reconstruct the failure propagation path and generate a unified diff patch (`--- a/file +++ b/file`).
 7. **Strict Provenance Attribution:** Clear boundaries ensure pre-loaded demo fixtures are never misrepresented as live repository scans.
 
@@ -71,7 +71,7 @@ API changed → customer_id removed → payment.customer_id → undefined → Cu
 │                            │                              │
 │                            ▼                              │
 │             3. Repository Impact Analysis                 │
-│                (Live AST Scan vs Canonical Demo Fixture)  │
+│                (Live Repo Scan vs Canonical Demo Fixture) │
 │                            │                              │
 │                            ▼                              │
 │             4. Gemini Autopsy Reasoning                   │
@@ -181,7 +181,7 @@ API Autopsy supports two execution paths that converge on the exact same core pi
 | **Credentials** | Decrypted server-side for outbound call only | Not accessed or needed |
 | **`isSimulation`** | `false` | `true` (tagged on all records, badges, and alerts) |
 | **External Impact**| Real external request made | Zero external network calls |
-| **Code Impact** | Live repository AST scan of connected repo | Live AST scan, or explicitly gated canonical demo fixture |
+| **Code Impact** | Pattern-based code reference scan of connected repo | Pattern-based scan, or explicitly gated canonical demo fixture |
 
 ---
 
@@ -198,7 +198,7 @@ API Autopsy supports two execution paths that converge on the exact same core pi
 
 ## Known Limitations
 
-1. **Pattern-Based AST Scanner:** The repository scanner uses regex and pattern matching for outbound HTTP calls (`fetch`, `axios`, `got`) and field accesses. Highly dynamic metaprogramming or complex reflection may not be detected with high confidence.
+1. **Pattern-Based Code Reference Scanner:** The repository scanner uses regex and pattern matching for outbound HTTP calls (`fetch`, `axios`, `got`) and field accesses. Highly dynamic metaprogramming or complex reflection may not be detected with high confidence.
 2. **Single-Process Polling Scheduler:** The background monitor scheduler runs as an in-process singleton (`setInterval`) suitable for local development and single-instance deployments. For horizontal multi-pod clusters, an external distributed queue (such as BullMQ, Redis, or Cloud Tasks) should be used.
 3. **Read-Only Patch Delivery:** API Autopsy generates standard unified diff patches (`.patch`) for developer review and copying; it does not automatically commit changes to user repositories.
 

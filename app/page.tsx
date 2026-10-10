@@ -96,7 +96,7 @@ export default async function LandingPage() {
               Forensic Incident Chain
             </h3>
             <span className="text-[11px] font-mono text-slate-500">
-              Deterministic Detection → AST Trace → AI Autopsy
+              Deterministic Detection → Repository Impact Scan → AI Autopsy
             </span>
           </div>
 
@@ -158,7 +158,7 @@ export default async function LandingPage() {
                 INVESTIGATE
               </h4>
               <p className="text-xs text-slate-400 leading-relaxed font-sans">
-                Deterministic diff engine identifies structural breaks and queries repository AST for references.
+                Deterministic diff engine identifies structural breaks and queries the repository for code references.
               </p>
             </div>
 
