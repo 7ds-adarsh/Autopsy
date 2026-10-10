@@ -49,7 +49,7 @@ Build mode: learn
   Learner check: Trigger the simulation via the API route and inspect the database. Is the `proposedPatch` correct (`payment.customer_id` → `payment.customer.id`)? Is the credential absent from the report? Does the real-check path classify a 401 correctly — no incident in the DB?
   Commit: `Core kernel: diff engine, dual-path incident pipeline, Gemini autopsy, error classification`
 
-- [ ] **5. Real-time monitoring UI + pipeline progress + Autopsy Report page**
+- [x] **5. Real-time monitoring UI + pipeline progress + Autopsy Report page**
   Becomes usable: The active monitor screen shows live status. Check Now and Simulate API Change work from the UI. The pipeline progress updates in real time as Socket.IO events arrive (each step appearing as it fires, not batch-revealed). The Autopsy Report is rendered with all sections. The incidents list is navigable. The monitor scheduler polls every 5 minutes.
   Why now: The kernel is proven in Slice 4; this slice surfaces it through the UI. The underlying incident logic is not redesigned here — only presented.
   PRD ref: `prd.md → Screen 6 — API Monitor (Active)`, `prd.md → Screen 7 — Simulate API Change Dialog`, `prd.md → Screen 8 — Live Incident Pipeline`, `prd.md → Screen 9 — Autopsy Report`, `prd.md → Screen 10 — Incidents List`
@@ -60,7 +60,7 @@ Build mode: learn
   Commit: `Monitor UI, real-time pipeline progress via Socket.IO, Autopsy Report, and monitor scheduler`
 
 
-- [ ] **6. Landing page polish + operational dashboard + demo readiness**
+- [x] **6. Landing page polish + operational dashboard + demo readiness**
   Becomes usable: The full product is presentable end-to-end. The landing page communicates the product clearly with forensic dark-mode identity. The operational dashboard appears once monitoring is active. Empty and error states are handled throughout. `.env.example` and README are ready for the public repository.
   Why now: The core product is working and verified; this slice makes it presentable and demo-ready.
   PRD ref: `prd.md → Screen 1 — Landing Page`, `prd.md → Screen 11 — Operational Dashboard (Post-Setup)`, `prd.md → Look and Feel`, `prd.md → States and Boundaries`
