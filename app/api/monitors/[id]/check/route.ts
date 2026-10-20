@@ -5,6 +5,9 @@ import { apiMonitors, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { executeMonitorCheck } from "@/lib/monitor/executor";
 
+// Real HTTP checks + Gemini autopsy can take up to 60s total.
+export const maxDuration = 60;
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,6 +17,9 @@ export async function POST(
   const session = await auth();
   let userId = session?.user?.id;
   if (!userId) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const [firstUser] = await db.select().from(users).limit(1);
     if (!firstUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     userId = firstUser.id;

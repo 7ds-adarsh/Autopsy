@@ -26,6 +26,7 @@ import {
 import { runRepositoryImpact } from "../impact/repository-impact";
 import { GeminiProvider } from "../ai/gemini";
 import type { AutopsyInput } from "../ai/provider";
+import { emitPipelineEvent } from "./pipeline-events";
 
 const aiProvider = new GeminiProvider();
 
@@ -33,7 +34,9 @@ export async function runIncidentPipeline(
   monitorId: string,
   newResponse: unknown,
   isSimulation: boolean,
-  injectedAffectedFiles?: import("../ai/provider").AffectedFile[]
+  injectedAffectedFiles?: import("../ai/provider").AffectedFile[],
+  /** Optional tracking token for pre-incident pipeline events (used by cron/check callers) */
+  _trackingId?: string
 ): Promise<{ incidentId?: string; hasChanges: boolean }> {
   const io = getIO();
 
@@ -76,6 +79,7 @@ export async function runIncidentPipeline(
     changes: diff.changes,
     severity: diff.overallSeverity,
   });
+
 
   // 4. No changes — update lastCheckedAt and exit cleanly
   if (!diff.hasChanges) {
@@ -130,6 +134,15 @@ export async function runIncidentPipeline(
     diff,
   });
 
+  // Persist diff + incident stages with real incidentId
+  await emitPipelineEvent(incident.id, monitorId, "diff", "done", `${diff.changes.length} change(s) detected`, {
+    hasChanges: true,
+    changes: diff.changes as unknown as Array<{ path: string; type: string }>,
+    severity: diff.overallSeverity,
+  });
+  await emitPipelineEvent(incident.id, monitorId, "incident", "done", `Severity: ${severity.toUpperCase()}`, { severity });
+  await emitPipelineEvent(incident.id, monitorId, "impact", "running");
+
   console.log(`[Pipeline] Incident created: ${incident.id}`);
 
   // 8. Repository impact analysis (or use injected evidence for canonical simulations)
@@ -156,6 +169,20 @@ export async function runIncidentPipeline(
     affectedFilesCount: affectedFiles.length,
     affectedFiles,
   });
+
+  // Persist impact + gemini-running stages
+  await emitPipelineEvent(
+    incident.id, monitorId, "impact", "done",
+    affectedFiles.length > 0
+      ? `${affectedFiles.length} affected reference(s) found`
+      : "No direct application references detected",
+    {
+      affectedFilesCount: affectedFiles.length,
+      // Safe: only file path, line number, and source label stored — no content
+      affectedFiles: affectedFiles.map((f) => ({ file: f.file, line: f.line, source: f.source })),
+    }
+  );
+  await emitPipelineEvent(incident.id, monitorId, "gemini", "running", "Sending evidence to Gemini for analysis...");
 
   // 9. Emit autopsy:started
   io?.emit("autopsy:started", { incidentId: incident.id, monitorId });
@@ -219,6 +246,9 @@ export async function runIncidentPipeline(
       reportId: savedReport.id,
     });
 
+    await emitPipelineEvent(incident.id, monitorId, "gemini", "done", "Autopsy generated", { reportId: savedReport.id });
+    await emitPipelineEvent(incident.id, monitorId, "complete", "done", "Report ready for review");
+
     console.log(`[Pipeline] Autopsy report saved: ${savedReport.id}`);
     return { incidentId: incident.id, hasChanges: true };
   } catch (geminiErr) {
@@ -252,6 +282,9 @@ export async function runIncidentPipeline(
       reportId: null,
       error: "Gemini analysis failed",
     });
+
+    await emitPipelineEvent(incident.id, monitorId, "gemini", "failed", "Gemini analysis failed", { error: errorMessage });
+    await emitPipelineEvent(incident.id, monitorId, "complete", "done", "Incident recorded (AI analysis failed)");
 
     return { incidentId: incident.id, hasChanges: true };
   }

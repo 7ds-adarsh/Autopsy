@@ -10,6 +10,12 @@ import {
   CANONICAL_CODE_EVIDENCE,
 } from "@/lib/monitor/canonical-demo";
 
+// Configure Vercel Function timeout for this route.
+// Gemini analysis may take up to 30s. 60s gives a safe margin.
+// The incident + diff are persisted before Gemini is called so a timeout
+// never loses the deterministic diff result.
+export const maxDuration = 60;
+
 // Re-export for consumers that need them (e.g. tests)
 export { CANONICAL_FIXTURE, CANONICAL_CODE_EVIDENCE };
 
@@ -22,6 +28,9 @@ export async function POST(
   const session = await auth();
   let userId = session?.user?.id;
   if (!userId) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const [firstUser] = await db.select().from(users).limit(1);
     if (!firstUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     userId = firstUser.id;

@@ -263,49 +263,106 @@ export function LivePipelineProgress({
     };
   }, [socket, monitorId, onComplete]);
 
-  // Fallback resolution: If initialIncidentId is passed or if socket events were missed,
-  // fetch the incident status from the API so UI recovers cleanly
+  // Sync initialIncidentId if passed as prop
+  useEffect(() => {
+    if (initialIncidentId) {
+      setActiveIncidentId(initialIncidentId);
+    }
+  }, [initialIncidentId]);
+
+  // Vercel-compatible polling: Reconstructs pipeline state from persisted DB events
+  // Runs whenever activeIncidentId is present. Stops automatically when complete or failed.
   useEffect(() => {
     if (!activeIncidentId) return;
 
     let isMounted = true;
-    const checkPersistedIncident = async () => {
+    let pollTimeout: NodeJS.Timeout | null = null;
+
+    const pollProgress = async () => {
       try {
-        const res = await fetch(`/api/incidents/${activeIncidentId}`);
-        if (!res.ok) return;
+        const res = await fetch(`/api/incidents/${activeIncidentId}/progress`);
+        if (!res.ok) {
+          // If progress endpoint is 404, fallback to incident status
+          const incRes = await fetch(`/api/incidents/${activeIncidentId}`);
+          if (incRes.ok && isMounted) {
+            const data = await incRes.json();
+            if (data.incident) {
+              setSeverity(data.incident.severity);
+              updateStage("started", "done");
+              updateStage("diff", "done");
+              updateStage("incident", "done", `Severity: ${data.incident.severity.toUpperCase()}`);
+              if (data.report) {
+                updateStage("gemini", "done", "Investigation complete");
+                updateStage("complete", "done", "Autopsy report ready");
+                if (onComplete) onComplete(activeIncidentId);
+                return;
+              }
+            }
+          }
+          return;
+        }
+
         const data = await res.json();
         if (!isMounted) return;
 
-        if (data.incident) {
-          setSeverity(data.incident.severity);
+        if (Array.isArray(data.events) && data.events.length > 0) {
           updateStage("started", "done");
-          updateStage("diff", "done");
-          updateStage("incident", "done", `Severity: ${data.incident.severity.toUpperCase()}`);
 
-          if (data.report) {
-            updateStage(
-              "impact",
-              "done",
-              data.report.applicationImpact?.length > 0
-                ? `${data.report.applicationImpact.length} affected reference(s)`
-                : "No direct application references detected"
-            );
-            updateStage("gemini", "done", "Investigation complete");
-            updateStage("complete", "done", "Autopsy report ready");
-            if (onComplete) onComplete(activeIncidentId);
+          for (const ev of data.events) {
+            const stageId = ev.stage as PipelineStageId;
+            const status = ev.status as PipelineStage["status"];
+            updateStage(stageId, status, ev.detail || undefined);
+
+            if (stageId === "diff" && ev.payload?.changes) {
+              const removed: string[] = [];
+              const added: string[] = [];
+              const modified: string[] = [];
+              ev.payload.changes.forEach((c: { path: string; type: string }) => {
+                if (c.type === "removed") removed.push(c.path);
+                else if (c.type === "added") added.push(c.path);
+                else modified.push(c.path);
+              });
+              setDiffDetails({ removed, added, modified });
+            }
+
+            if (stageId === "diff" && ev.payload?.severity) {
+              setSeverity(ev.payload.severity);
+            }
+
+            if (stageId === "incident" && ev.payload?.severity) {
+              setSeverity(ev.payload.severity);
+            }
+
+            if (stageId === "impact" && ev.payload?.affectedFiles) {
+              setImpactDetails({
+                count: ev.payload.affectedFilesCount ?? ev.payload.affectedFiles.length,
+                files: ev.payload.affectedFiles,
+              });
+            }
           }
         }
-      } catch (e) {
-        console.error("[LivePipeline] Fallback fetch error:", e);
+
+        if (data.isComplete || data.reportReady) {
+          updateStage("complete", "done", "Autopsy report ready");
+          if (onComplete) {
+            onComplete(activeIncidentId);
+          }
+          return; // Stop polling on completion
+        }
+      } catch (err) {
+        console.warn("[LivePipeline] Polling error:", err);
+      }
+
+      if (isMounted) {
+        pollTimeout = setTimeout(pollProgress, 1500);
       }
     };
 
-    // Poll once immediately and once after 2.5s if not already complete
-    checkPersistedIncident();
-    const timer = setTimeout(checkPersistedIncident, 2500);
+    pollProgress();
+
     return () => {
       isMounted = false;
-      clearTimeout(timer);
+      if (pollTimeout) clearTimeout(pollTimeout);
     };
   }, [activeIncidentId, onComplete]);
 

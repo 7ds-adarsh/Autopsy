@@ -103,6 +103,24 @@ export const autopsyReports = pgTable("autopsy_reports", {
   generatedAt: timestamp("generated_at").defaultNow().notNull(),
 });
 
+// 8. Pipeline Events — persisted progress stages for Vercel-compatible polling
+// Replaces in-memory Socket.IO event bus for cross-function progress visibility.
+// Each row represents one named stage update for a given incident.
+export const pipelineEvents = pgTable("pipeline_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  incidentId: uuid("incident_id")
+    .references(() => incidents.id, { onDelete: "cascade" })
+    .notNull(),
+  monitorId: uuid("monitor_id")
+    .references(() => apiMonitors.id, { onDelete: "cascade" })
+    .notNull(),
+  stage: text("stage").notNull(), // 'started' | 'diff' | 'incident' | 'impact' | 'gemini' | 'complete'
+  status: text("status").notNull(), // 'running' | 'done' | 'failed' | 'skipped'
+  detail: text("detail"),
+  payload: jsonb("payload"), // arbitrary per-stage data (diff changes, affected files, etc.)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Repository = typeof repositories.$inferSelect;
@@ -110,3 +128,4 @@ export type ApiMonitor = typeof apiMonitors.$inferSelect;
 export type Baseline = typeof baselines.$inferSelect;
 export type Incident = typeof incidents.$inferSelect;
 export type AutopsyReport = typeof autopsyReports.$inferSelect;
+export type PipelineEvent = typeof pipelineEvents.$inferSelect;

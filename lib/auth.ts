@@ -17,10 +17,11 @@ if (process.env.GITHUB_OAUTH_CLIENT_ID && process.env.GITHUB_OAUTH_CLIENT_SECRET
 }
 
 // Dev fallback provider to allow local evaluation without configuring GitHub OAuth app
-providers.push(
-  Credentials({
-    id: "dev-mock-github",
-    name: "Dev GitHub Account",
+if (process.env.NODE_ENV !== "production") {
+  providers.push(
+    Credentials({
+      id: "dev-mock-github",
+      name: "Dev GitHub Account",
     credentials: {
       username: { label: "Username", type: "text", value: "octocat" },
     },
@@ -64,6 +65,7 @@ providers.push(
     },
   })
 );
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,

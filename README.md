@@ -108,23 +108,24 @@ cp .env.example .env.local
 
 ### Environment Variables Reference
 
-| Variable | Description | Example / Default |
-| :--- | :--- | :--- |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:postgres@localhost:5432/autopsy` |
-| `NEXTAUTH_SECRET` | 32-character random string for Auth.js session encryption | `openssl rand -hex 32` |
-| `NEXTAUTH_URL` | Canonical app URL | `http://localhost:3000` |
-| `GITHUB_OAUTH_CLIENT_ID` | GitHub OAuth App Client ID (for developer login) | `Ov23li...` |
-| `GITHUB_OAUTH_CLIENT_SECRET`| GitHub OAuth App Client Secret | `6b2d18...` |
-| `GITHUB_APP_ID` | GitHub App ID (for repository code scanning) | `123456` |
-| `GITHUB_APP_PRIVATE_KEY` | GitHub App RSA Private Key (PEM format) | `"-----BEGIN RSA PRIVATE KEY-----\n..."` |
-| `GITHUB_APP_CLIENT_ID` | GitHub App Client ID | `Iv23...` |
-| `GITHUB_APP_CLIENT_SECRET` | GitHub App Client Secret | `a1b2c3...` |
-| `GEMINI_API_KEY` | Google GenAI API Key | `AIzaSy...` |
-| `GEMINI_MODEL` | Gemini model name for Autopsy reasoning | `gemini-3.8-flash` |
-| `ENCRYPTION_KEY` | 32-byte AES-256 encryption key in 64 hex characters | `openssl rand -hex 32` |
-| `PORT` | Local server port | `3000` |
+| Variable | Required In | Description | Format / Example |
+| :--- | :--- | :--- | :--- |
+| `DATABASE_URL` | Production & Dev | PostgreSQL pooled connection string | `postgresql://user:pass@ep-xyz.neon.tech/autopsy?sslmode=require` |
+| `NEXTAUTH_SECRET` | Production & Dev | 32-byte session encryption secret | `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | Production & Dev | Canonical URL of the application | `https://your-project.vercel.app` (or `http://localhost:3000`) |
+| `GITHUB_OAUTH_CLIENT_ID` | Production & Dev | GitHub OAuth App Client ID (user authentication) | `Ov23li...` |
+| `GITHUB_OAUTH_CLIENT_SECRET` | Production & Dev | GitHub OAuth App Client Secret | `6b2d18...` |
+| `GITHUB_APP_ID` | Production & Dev | GitHub App ID (repository code scanning) | `123456` |
+| `GITHUB_APP_PRIVATE_KEY` | Production & Dev | GitHub App RSA Private Key (PEM format with `\n`) | `"-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"` |
+| `GITHUB_APP_CLIENT_ID` | Production & Dev | GitHub App Client ID | `Iv23...` |
+| `GITHUB_APP_CLIENT_SECRET` | Production & Dev | GitHub App Client Secret | `a1b2c3...` |
+| `GEMINI_API_KEY` | Production & Dev | Google GenAI API Key for Autopsy reasoning | `AIzaSy...` |
+| `GEMINI_MODEL` | Production & Dev | Gemini model identifier | `gemini-3.8-flash` |
+| `ENCRYPTION_KEY` | Production & Dev | 32-byte AES-256 key as 64 hex characters | `openssl rand -hex 32` |
+| `CRON_SECRET` | Production & Dev | Bearer secret for `/api/cron/monitor-tick` | `openssl rand -hex 32` |
+| `PORT` | Local Dev Only | Custom server HTTP port (**Do NOT set on Vercel**) | `3000` |
 
-> **Security Note:** `.env` and `.env.local` are explicitly excluded in `.gitignore`. Real credentials must never be committed.
+> **Security Note:** `.env`, `.env.local`, and real secrets are strictly excluded in `.gitignore`. Real credentials must never be committed to Git.
 
 ---
 
@@ -148,6 +149,69 @@ npm run dev
 ```
 
 Visit [http://localhost:3000](http://localhost:3000) to open the application.
+
+---
+
+## Vercel Deployment Guide
+
+API Autopsy is designed for seamless native Next.js deployment on Vercel without relying on custom server infrastructure.
+
+### 1. Git-Based Deployment Steps
+1. Fork or push the repository to GitHub: `https://github.com/7ds-adarsh/Autopsy`
+2. In the [Vercel Dashboard](https://vercel.com/new), select **Add New...** → **Project**.
+3. Import your GitHub repository.
+4. Framework Preset: **Next.js** (automatically detected).
+5. Build Command: `next build` (default).
+6. Output Directory: `.next` (default).
+7. Configure all Required Environment Variables (see checklist below) under **Environment Variables**.
+8. Click **Deploy**.
+
+### 2. Production Database Preparation
+- **Recommended Providers:** [Neon](https://neon.tech), [Supabase](https://supabase.com), or any managed PostgreSQL instance with a connection pooler (e.g. PgBouncer).
+- **Serverless Pooling:** Use the pooled connection string (port 6543 on Supabase, or `-pooler` endpoint on Neon). API Autopsy's DB client is configured with `max: 5`, a 10-second idle timeout, and 5-second connection timeout to keep serverless function cold starts low.
+- **Applying Schema to Production:**  
+  Run migrations locally targeting your production database URL (never run migrations as an automatic build side effect):
+  ```bash
+  # Option A: Run migrations via Drizzle Kit
+  DATABASE_URL="postgresql://user:pass@ep-pooler.neon.tech/autopsy?sslmode=require" npm run db:migrate
+
+  # Option B: Push schema directly
+  DATABASE_URL="postgresql://user:pass@ep-pooler.neon.tech/autopsy?sslmode=require" npm run db:push
+  ```
+
+### 3. Production GitHub Configuration
+
+#### A. GitHub OAuth App (User Login)
+In GitHub Settings → Developer Settings → OAuth Apps:
+- **Application name:** API Autopsy (Production)
+- **Homepage URL:** `https://your-project.vercel.app`
+- **Authorization callback URL:** `https://your-project.vercel.app/api/auth/callback/github`
+- Copy Client ID and generate a Client Secret to set as `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET`.
+
+#### B. GitHub App (Repository Scanner)
+In GitHub Settings → Developer Settings → GitHub Apps:
+- **GitHub App name:** API Autopsy Scanner (Production)
+- **Homepage URL:** `https://your-project.vercel.app`
+- **Callback URL:** `https://your-project.vercel.app/api/github/app/callback`
+- **Setup URL:** `https://your-project.vercel.app/api/github/app/callback` (Redirect on update checked)
+- **Permissions:** Repository permissions → *Contents* (Read-only), *Metadata* (Read-only).
+- **Private Key:** Click **Generate a private key**. In Vercel environment variables, paste the private key either with literal `\n` or as a multiline string.
+- Set `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_CLIENT_ID`, and `GITHUB_APP_CLIENT_SECRET`.
+
+### 4. Cron Scheduling & Background Checks
+- **Hobby Plan Limitation:** Vercel Cron on the Hobby plan is restricted to once per day (`0 0 * * *`). Setting a 5-minute interval in `vercel.json` will cause Vercel build/deployment failures on Hobby accounts.
+- **External Cron Invocation (Recommended for 5-min checks):**  
+  Use an external scheduler (e.g. [cron-job.org](https://cron-job.org), GitHub Actions scheduled workflow, or Upstash QStash) to invoke the protected endpoint every 5 minutes:
+  ```http
+  POST https://your-project.vercel.app/api/cron/monitor-tick
+  Authorization: Bearer <CRON_SECRET>
+  ```
+  The endpoint is idempotent: it only checks enabled monitors whose `lastCheckedAt + intervalMinutes` has elapsed.
+- **If Unattended Cron is Not Configured:** Automatic background polling remains inactive, but **manual "Check Now"** and **"Simulate API Change"** remain fully operational on-demand.
+
+### 5. Production Testing & Verification
+- **Testing the Canonical Demo:** Open any configured API monitor, click **Simulate API Change**, choose the pre-loaded **Canonical Breaking Change**, and click **Run Simulation**. Progress events are written to PostgreSQL and polled at `/api/incidents/[id]/progress`, rendering the live forensic investigation pipeline and unified diff patch without requiring Socket.IO.
+- **Testing Manual Checks:** Click **Check Now** on any monitor with an established baseline to verify live endpoint responses.
 
 ---
 

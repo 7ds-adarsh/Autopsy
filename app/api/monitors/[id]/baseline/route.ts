@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { apiMonitors, apiCredentials, baselines } from "@/lib/db/schema";
+import { apiMonitors, apiCredentials, baselines, users } from "@/lib/db/schema";
 import { decrypt } from "@/lib/crypto/credentials";
 import { executeHttpRequest, extractStructureSummary } from "@/lib/monitor/http-client";
 import { eq } from "drizzle-orm";
@@ -14,6 +15,17 @@ export async function POST(
     const body = await req.json();
     const { captureMethod = "live", sampleJson } = body;
 
+    const session = await auth();
+    let userId = session?.user?.id;
+    if (!userId) {
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      const [firstUser] = await db.select().from(users).limit(1);
+      if (!firstUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      userId = firstUser.id;
+    }
+
     // 1. Load monitor
     const [monitor] = await db
       .select()
@@ -21,7 +33,7 @@ export async function POST(
       .where(eq(apiMonitors.id, id))
       .limit(1);
 
-    if (!monitor) {
+    if (!monitor || monitor.userId !== userId) {
       return NextResponse.json({ error: "Monitor not found" }, { status: 404 });
     }
 

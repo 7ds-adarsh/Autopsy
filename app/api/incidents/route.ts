@@ -8,6 +8,9 @@ export async function GET() {
   const session = await auth();
   let userId = session?.user?.id;
   if (!userId) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const [firstUser] = await db.select().from(users).limit(1);
     if (!firstUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     userId = firstUser.id;

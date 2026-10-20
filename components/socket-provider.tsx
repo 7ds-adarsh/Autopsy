@@ -12,13 +12,19 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     const s = io({
       path: "/api/socketio",
       reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
+      reconnectionAttempts: 3,
+      reconnectionDelay: 2000,
+      timeout: 5000,
     });
 
     s.on("connect", () => {
       console.log(`[Socket.IO Client] Connected with ID: ${s.id}`);
       setSocket(s);
+    });
+
+    s.on("connect_error", () => {
+      // In serverless environments like Vercel, custom HTTP server is not running;
+      // DB-backed polling seamlessly handles all progress updates instead.
     });
 
     s.on("disconnect", (reason) => {
