@@ -231,6 +231,36 @@ The test suite covers:
 - **`lib/diff/schema-diff.test.ts`**: Recursive JSON structural diffing (additions, deletions, type alterations, nested renames, order invariance).
 - **`lib/monitor/canonical-demo.test.ts`**: Simulation configuration resolution, explicit gating of canonical demo evidence, and non-canonical safety.
 - **`lib/monitor/slice5-ui-integration.test.ts`**: End-to-end simulation payload resolution, incident creation contracts, and provenance tagging.
+- **`lib/pipeline/demo-cleanup.test.ts`**: Demo data cleanup safety invariants, target identification, and production guard testing.
+
+---
+
+## Demo Data Cleanup (Hackathon Preparation)
+
+Before recording demo videos or presenting at the hackathon, you can safely reset development and demo data to a clean slate.
+
+### Safety Invariants
+- **Preserved:** User accounts, GitHub OAuth identities, linked repositories, canonical demo monitor (`Acme Payments API`, `POST /payments`), known-good baseline, and encrypted credentials.
+- **Removed:** Non-canonical test monitors, test baselines, test incidents, autopsy reports, and pipeline events.
+- **Guardrails:** Refuses to run against production databases (`NODE_ENV=production` or production hosts) unless `--allow-production` is explicitly passed. Never truncates tables or deletes users. Operates in an atomic PostgreSQL transaction with automatic rollback on error.
+
+### 1. Preview Cleanup Plan (Dry-Run)
+Inspect exactly which records will be preserved and which will be deleted without modifying the database:
+```bash
+npm run demo:cleanup:preview
+```
+
+### 2. Execute Cleanup
+Requires both `--execute` and `--confirm` flags:
+```bash
+npm run demo:cleanup -- --execute --confirm
+```
+
+### 3. Verify Clean State
+Ensure the canonical monitor is healthy with 0 incidents:
+```bash
+npm run demo:cleanup -- --verify
+```
 
 ---
 

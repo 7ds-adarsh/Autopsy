@@ -13,7 +13,9 @@
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "demo:cleanup": "tsx scripts/demo-cleanup.ts",
+    "demo:cleanup:preview": "tsx scripts/demo-cleanup.ts --preview"
   },
   "dependencies": {
     "@google/genai": "^2.26.0",
