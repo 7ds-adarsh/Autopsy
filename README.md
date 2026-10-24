@@ -262,6 +262,12 @@ Ensure the canonical monitor is healthy with 0 incidents:
 npm run demo:cleanup -- --verify
 ```
 
+### 4. Verify Canonical Simulation
+Run the canonical simulation end-to-end to verify that the canonical monitor, baseline, and pipeline generate a live incident, autopsy report, and pipeline events:
+```bash
+npm run demo:verify-simulation
+```
+
 ---
 
 ## Real Checks vs. Simulations

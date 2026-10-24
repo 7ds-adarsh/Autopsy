@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "demo:cleanup": "tsx scripts/demo-cleanup.ts",
-    "demo:cleanup:preview": "tsx scripts/demo-cleanup.ts --preview"
+    "demo:cleanup:preview": "tsx scripts/demo-cleanup.ts --preview",
+    "demo:verify-simulation": "tsx scripts/verify-canonical-simulation.ts"
   },
   "dependencies": {
     "@google/genai": "^2.26.0",
