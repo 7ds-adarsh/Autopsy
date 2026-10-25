@@ -95,11 +95,21 @@ export class GeminiProvider implements AIProvider {
     let lastError: unknown = null;
     const maxAttempts = 3;
 
+    const activeModel = process.env.GEMINI_MODEL || this.model || DEFAULT_MODEL;
+
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const response = await ai.models.generateContent({
-          model: this.model,
+          model: activeModel,
           contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            temperature: 0.1,
+            maxOutputTokens: 2048,
+            thinkingConfig: {
+              thinkingBudget: 0,
+            },
+          },
         });
         responseText = response.text ?? "";
         lastError = null;
@@ -109,7 +119,7 @@ export class GeminiProvider implements AIProvider {
         const message = err instanceof Error ? err.message : String(err);
         const isHighDemand = message.includes("503") || message.includes("high demand");
         if (isHighDemand) {
-          console.warn(`[GeminiProvider] Primary model ${this.model} is experiencing high demand (503). Bypassing retry to use fallback.`);
+          console.warn(`[GeminiProvider] Primary model ${activeModel} is experiencing high demand (503). Bypassing retry to use fallback.`);
           break;
         }
         const isTransient = message.includes("429") || message.includes("RESOURCE_EXHAUSTED");
@@ -122,14 +132,22 @@ export class GeminiProvider implements AIProvider {
       }
     }
 
-    const fallbackTarget = this.model !== FALLBACK_MODEL ? FALLBACK_MODEL : "gemini-3.6-flash";
+    const fallbackTarget = activeModel !== FALLBACK_MODEL ? FALLBACK_MODEL : "gemini-3.6-flash";
 
-    if ((lastError || !responseText) && this.model !== fallbackTarget) {
-      console.warn(`[GeminiProvider] Primary model ${this.model} encountered error. Attempting fallback to ${fallbackTarget}...`);
+    if ((lastError || !responseText) && activeModel !== fallbackTarget) {
+      console.warn(`[GeminiProvider] Primary model ${activeModel} encountered error. Attempting fallback to ${fallbackTarget}...`);
       try {
         const fallbackResponse = await ai.models.generateContent({
           model: fallbackTarget,
           contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            temperature: 0.1,
+            maxOutputTokens: 2048,
+            thinkingConfig: {
+              thinkingBudget: 0,
+            },
+          },
         });
         responseText = fallbackResponse.text ?? "";
         lastError = null;

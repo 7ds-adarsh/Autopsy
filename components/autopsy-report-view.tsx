@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Flame,
@@ -18,6 +19,7 @@ import {
   Activity,
   ArrowDown,
   Layers,
+  Loader2,
 } from "lucide-react";
 
 export interface AutopsyReportData {
@@ -78,8 +80,10 @@ interface AutopsyReportViewProps {
 }
 
 export function AutopsyReportView({ data }: AutopsyReportViewProps) {
+  const router = useRouter();
   const { incident, monitor, report } = data;
   const [copiedPatch, setCopiedPatch] = useState(false);
+  const [isTimedOut, setIsTimedOut] = useState(false);
 
   const changes = incident.diff?.changes || [];
   const removedChanges = changes.filter((c) => c.type === "removed");
@@ -89,6 +93,41 @@ export function AutopsyReportView({ data }: AutopsyReportViewProps) {
   const hasReport = !!report;
   const isFailedReport =
     hasReport && report.whatChanged.toLowerCase().includes("failed");
+
+  // Auto-poll if report is not yet generated and hasn't failed
+  useEffect(() => {
+    if (hasReport || isFailedReport) return;
+
+    let mounted = true;
+    const startTime = Date.now();
+
+    const interval = setInterval(async () => {
+      // Timeout after 35 seconds of waiting
+      if (Date.now() - startTime > 35000) {
+        if (mounted) setIsTimedOut(true);
+        clearInterval(interval);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/incidents/${incident.id}/progress`);
+        if (res.ok) {
+          const progressData = await res.json();
+          if (progressData.reportReady || progressData.isComplete) {
+            clearInterval(interval);
+            if (mounted) router.refresh();
+          }
+        }
+      } catch {
+        // network blip — keep polling
+      }
+    }, 1500);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [hasReport, isFailedReport, incident.id, router]);
 
   function handleCopyPatch() {
     if (!report?.proposedPatch) return;
@@ -164,8 +203,21 @@ export function AutopsyReportView({ data }: AutopsyReportViewProps) {
           </div>
         </div>
 
-        {/* Gemini failure fallback notice if applicable */}
-        {(!hasReport || isFailedReport) && (
+        {/* Live investigation in progress notice */}
+        {!hasReport && !isFailedReport && !isTimedOut && (
+          <div className="p-4 rounded-lg bg-purple-950/40 border border-purple-800/50 text-purple-300 text-xs space-y-1 animate-pulse">
+            <div className="flex items-center gap-2 font-bold text-purple-400">
+              <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+              <span>Gemini AI Investigation In Progress...</span>
+            </div>
+            <p className="text-slate-300 leading-relaxed text-[11px]">
+              Forensic analysis underway: synthesizing contract diff and application references. This page updates automatically.
+            </p>
+          </div>
+        )}
+
+        {/* Gemini failure fallback notice if truly failed or timed out */}
+        {(isFailedReport || (!hasReport && isTimedOut)) && (
           <div className="p-4 rounded-lg bg-amber-950/30 border border-amber-800/40 text-amber-300 text-xs space-y-1">
             <div className="flex items-center gap-2 font-bold text-amber-400">
               <AlertTriangle className="w-4 h-4 shrink-0" />
