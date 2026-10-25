@@ -8,7 +8,8 @@
 import { GoogleGenAI } from "@google/genai";
 import type { AIProvider, AutopsyInput, AutopsyReport } from "./provider";
 
-const DEFAULT_MODEL = "gemini-3.8-flash";
+const DEFAULT_MODEL = "gemini-3.5-flash";
+const FALLBACK_MODEL = "gemini-3.1-flash-lite";
 
 function buildPrompt(input: AutopsyInput): string {
   return `You are an API incident investigator. You will receive:
@@ -106,7 +107,12 @@ export class GeminiProvider implements AIProvider {
       } catch (err: unknown) {
         lastError = err;
         const message = err instanceof Error ? err.message : String(err);
-        const isTransient = message.includes("503") || message.includes("429") || message.includes("high demand") || message.includes("RESOURCE_EXHAUSTED");
+        const isHighDemand = message.includes("503") || message.includes("high demand");
+        if (isHighDemand) {
+          console.warn(`[GeminiProvider] Primary model ${this.model} is experiencing high demand (503). Bypassing retry to use fallback.`);
+          break;
+        }
+        const isTransient = message.includes("429") || message.includes("RESOURCE_EXHAUSTED");
         if (attempt < maxAttempts && isTransient) {
           console.warn(`[GeminiProvider] Transient error on attempt ${attempt}/${maxAttempts} (${message}). Retrying in ${attempt * 2}s...`);
           await new Promise((res) => setTimeout(res, attempt * 2000));
@@ -116,19 +122,19 @@ export class GeminiProvider implements AIProvider {
       }
     }
 
-    const FALLBACK_MODEL = "gemini-3.5-flash";
+    const fallbackTarget = this.model !== FALLBACK_MODEL ? FALLBACK_MODEL : "gemini-3.6-flash";
 
-    if ((lastError || !responseText) && this.model !== FALLBACK_MODEL) {
-      console.warn(`[GeminiProvider] Primary model ${this.model} encountered error. Attempting fallback to ${FALLBACK_MODEL}...`);
+    if ((lastError || !responseText) && this.model !== fallbackTarget) {
+      console.warn(`[GeminiProvider] Primary model ${this.model} encountered error. Attempting fallback to ${fallbackTarget}...`);
       try {
         const fallbackResponse = await ai.models.generateContent({
-          model: FALLBACK_MODEL,
+          model: fallbackTarget,
           contents: prompt,
         });
         responseText = fallbackResponse.text ?? "";
         lastError = null;
       } catch (fallbackErr) {
-        console.error(`[GeminiProvider] Fallback model ${FALLBACK_MODEL} also failed:`, fallbackErr);
+        console.error(`[GeminiProvider] Fallback model ${fallbackTarget} also failed:`, fallbackErr);
       }
     }
 
